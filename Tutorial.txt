@@ -1,0 +1,185 @@
+LFSUP - Manual Completo
+=======================
+
+1. INTRODUÇÃO
+-------------
+O lfsup é um gerenciador de pacotes minimalista escrito em Go para sistemas Linux From Scratch.
+Ele permite compilar, instalar, empacotar e gerenciar pacotes a partir de receitas em YAML.
+
+Principais recursos:
+- Compilação de pacotes a partir de receitas declarativas
+- Resolução automática de dependências em ordem topológica
+- Instalação em DESTDIR com suporte a fakeroot
+- Empacotamento em formato .tar.zst antes da instalação
+- Registro de pacotes instalados em banco de dados SQLite
+- Hooks de pós-instalação e pós-remover
+- Suporte a fases de build completas (preconfig, prepare, patch, build, check, install, postinstall, postremove)
+- CLI com coloração, spinner, busca de pacotes e status
+- Função revdep para verificar bibliotecas quebradas
+- rebuild --world para recompilar todo o sistema em ordem de dependência
+- Integração com repositório Git para sincronizar pacotes binários
+
+----------------------------------------------------------
+
+2. INSTALAÇÃO
+-------------
+2.1 Dependências necessárias:
+  - git
+  - curl
+  - tar
+  - zstd
+  - ldd (do glibc)
+  - go >= 1.22
+
+2.2 Compilação do lfsup:
+  git clone https://seu-repo/lfsup.git
+  cd lfsup
+  go build -o lfsup main.go
+  sudo mv lfsup /usr/local/bin/
+
+----------------------------------------------------------
+
+3. ESTRUTURA DE DIRETÓRIOS
+--------------------------
+~/.lfsup/
+    db.sqlite         -> banco de dados SQLite com pacotes instalados
+    packages/         -> diretório onde ficam pacotes empacotados em .tar.zst
+    build/            -> diretório temporário de compilação
+
+/opt/lfsup/repo/      -> diretório do repositório de receitas YAML
+
+----------------------------------------------------------
+
+4. RECEITAS (YAML)
+------------------
+Exemplo de receita (zlib.yaml):
+
+name: zlib
+version: 1.2.13
+source: https://zlib.net/zlib-1.2.13.tar.gz
+depends:
+  - gcc
+  - make
+preconfig: |
+  ./configure --prefix=/usr
+build: |
+  make -j$(nproc)
+check: |
+  make check
+install: |
+  make DESTDIR=$DESTDIR install
+postinstall: |
+  echo "zlib instalado com sucesso"
+
+Campos suportados:
+- name: nome do pacote
+- version: versão
+- source: URL de download ou git+URL para clonar
+- depends: lista de pacotes necessários
+- preconfig: comandos antes da compilação
+- prepare: ajustes antes do build
+- patch: aplicação de patches
+- build: compilação
+- check: testes
+- install: instalação em DESTDIR
+- postinstall: comandos após instalação
+- postremove: comandos executados após remoção
+
+----------------------------------------------------------
+name: neofetch
+version: git
+source: git+https://github.com/dylanaraps/neofetch.git
+depends:
+  - bash
+  - git
+prepare: |
+  chmod +x neofetch
+install: |
+  mkdir -p $DESTDIR/usr/bin
+  cp neofetch $DESTDIR/usr/bin/
+postinstall: |
+  echo "Neofetch instalado a partir do Git"
+----------------------------------------------
+
+5. COMANDOS SUPORTADOS
+----------------------
+lfsup search <nome>
+  Busca pacotes no repositório e mostra status:
+  [ ] não instalado
+  [✓] instalado
+
+lfsup install <pacote> [--strip] [--repo=/opt/lfsup/repo]
+  Instala um pacote e suas dependências
+  --strip remove símbolos após a compilação
+
+lfsup remove <pacote>
+  Remove pacote instalado e executa postremove se definido
+
+lfsup status
+  Lista pacotes instalados com versão
+
+lfsup info <pacote>
+  Mostra informações sobre um pacote
+
+lfsup rebuild --world
+  Recompila todo o sistema respeitando a ordem das dependências
+
+lfsup revdep
+  Verifica bibliotecas quebradas usando ldd
+
+lfsup sync-repo <dir_git>
+  Sincroniza pacotes binários gerados para um repositório Git
+
+lfsup doctor
+  Checa dependências do ambiente (git, curl, tar, zstd, etc.)
+
+----------------------------------------------------------
+
+6. CICLO DE USO TÍPICO
+----------------------
+1) Preparar repositório de receitas:
+   sudo mkdir -p /opt/lfsup/repo
+   sudo cp receitas/*.yaml /opt/lfsup/repo/
+
+2) Procurar pacote:
+   lfsup search zlib
+
+3) Instalar pacote:
+   sudo lfsup install zlib --repo=/opt/lfsup/repo
+
+4) Verificar status:
+   lfsup status
+
+5) Verificar dependências quebradas:
+   lfsup revdep
+
+6) Empacotar e sincronizar:
+   lfsup sync-repo ~/meu-repo-git
+
+----------------------------------------------------------
+
+7. EXEMPLO DE COMPILAÇÃO DE FIREFOX
+-----------------------------------
+- Criar receita firefox.yaml com depends:
+  zlib, libpng, cairo, pango, gtk3, nss, sqlite, etc.
+- Colocar todas as receitas no repositório
+- Executar:
+  sudo lfsup install firefox --repo=/opt/lfsup/repo
+- O lfsup resolverá a ordem, compilará dependências, empacotará e instalará
+
+----------------------------------------------------------
+
+8. OBSERVAÇÕES
+--------------
+- O empacotamento gera pacotes em ~/.lfsup/packages
+- O registro de pacotes é mantido em ~/.lfsup/db.sqlite
+- O fakeroot é simulado com DESTDIR, garantindo que a instalação só vá para o sistema após o empacotamento
+- O rebuild --world recompila todos os pacotes, útil para atualizações de toolchain
+- O revdep só funciona para binários ELF dinâmicos
+
+----------------------------------------------------------
+
+9. CONCLUSÃO
+------------
+O lfsup é um gerenciador de pacotes leve e flexível para Linux From Scratch.
+Ele oferece uma interface clara via receitas YAML, mantém o sistema organizado e permite desde a instalação de pacotes simples até a reconstrução completa do sistema.
