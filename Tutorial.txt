@@ -111,6 +111,7 @@ lfsup search <nome>
 lfsup install <pacote> [--strip] [--repo=/opt/lfsup/repo]
   Instala um pacote e suas dependências
   --strip remove símbolos após a compilação
+lfsup install vim --repo=/opt/lfsup/repo
 
 lfsup remove <pacote>
   Remove pacote instalado e executa postremove se definido
